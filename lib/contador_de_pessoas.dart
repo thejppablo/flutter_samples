@@ -38,7 +38,7 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Image.asset("images/restaurant.jpg", fit: BoxFit.cover),
+        Image.asset("images/restaurant.jpg", fit: BoxFit.fill),
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
