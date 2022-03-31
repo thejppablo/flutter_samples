@@ -1,47 +1,52 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import androidx.annotation.NonNull
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.os.Build.VERSION
+import android.os.Build.VERSION_CODES
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key}) : super(key: key);
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+class MainActivity: FlutterActivity() {
+    private val CHANNEL = "samples.flutter.dev/battery"
 
-class _MyHomePageState extends State<MyHomePage> {
-  static const platform = MethodChannel('samples.flutter.dev/battery');
-  String _batteryLevel = 'Unknown battery level.';
+    override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton(
-              child: const Text('Get Battery Level'),
-              onPressed: _getBatteryLevel,
-            ),
-            Text(_batteryLevel),
-          ],
-        ),
-      ),
-    );
-  }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler {
+            // Note: this method is invoked on the main thread.
+            call, result ->
+            if (call.method == "getBatteryLevel") {
+                val batteryLevel = getBatteryLevel()
 
-  Future<void> _getBatteryLevel() async {
-    String batteryLevel;
-    try {
-      final int result = await platform.invokeMethod('getBatteryLevel');
-      batteryLevel = 'Battery level at $result % .';
-    } on PlatformException catch (e) {
-      batteryLevel = "Failed to get battery level: '${e.message}'.";
+                if (batteryLevel != -1) {
+                    result.success(batteryLevel)
+                } else {
+                    result.error("UNAVAILABLE", "Battery level not available.", null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+
     }
 
-    setState(() {
-      _batteryLevel = batteryLevel;
-    });
-  }
+    private fun getBatteryLevel(): Int {
+        val batteryLevel: Int
+        if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
+            val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        } else {
+            val intent = ContextWrapper(applicationContext).registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            batteryLevel = intent!!.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) * 100 / intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        }
+
+        return batteryLevel
+    }
+
 
 }
